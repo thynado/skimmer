@@ -45,12 +45,41 @@ skim -pw 10
 ```
 
 ## Custom reports
-Inside the root `config.json` file there are two keys that are used within Skimmer:
+Inside the root `config.json` file there are three keys that are used within Skimmer. The order of the keys in the arrays are paramount to the skimmer operating properly so don't change the order or remove any keys.
 
-**`gimme`**  
-The `gimme` key follows the exact same keys and order as the `limits` key. The order is specific, any change to it will result in incorrect reports.
+**`template`**  
+The `template` array tells the skimmer what columns to save to the reported CSV file. That way you can ignore columns that aren't important such as `sc-bytes` or something like that.
 
 **`limits`**  
+The `limits` array tells the skimmer to limit results that have a value at the specified column. For example, we can limit results that have a `cs-uri-stem` containing either `/foo-bar` or `/foo/bar/baz` with the following:
+
+``` json
+"limits": {
+    "cs-uri-stem": ["/foo-bar", "/foo/bar/baz"],
+}
+```
+
+If we specify values in multiple limitation keys, it will ensure there is at least one match in both keys. Let's say I'm looking for pages with the `cs-uri-stem` containing either `/foo-bar` or `/foo/bar/baz` _BUT_ also limit those matches to requests that have `sc-status` of `404` or `503`:
+
+``` json
+"limits": {
+    "cs-uri-stem": ["/foo-bar", "/foo/bar/baz"],
+    "sc-status": ["404", "503"]
+}
+```
+
+**`exclusions`**  
+Similar to limitations, but with the oppositite affect. Let's use the same limitations shown above but we'll exclude internal traffic. In this example, internal traffic will be recognized as the IP `12.34.56.78`:
+
+``` json
+"limits": {
+    "cs-uri-stem": ["/foo-bar", "/foo/bar/baz"],
+    "sc-status": ["404", "503"]
+},
+"exclusions": {
+    "c-ip": ["12.34.56.78"]
+}
+```
 
 ## Columns
 | Name                | Key               | Description                                                                                                                                |
