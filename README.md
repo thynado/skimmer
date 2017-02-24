@@ -1,3 +1,5 @@
+![Demo](demo.gif)
+
 # Skimmer
 Skimmer is an IIS log parser written in Python for speed and customized with JSON for fun. Turning that frown upside down, one parsed, read, sorted and converted log file at a time.
 
