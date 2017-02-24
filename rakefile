@@ -1,0 +1,47 @@
+# == Configuration and setup =========================================
+ARGV.each { |a| task a.to_sym do ; end }
+
+# == Helpers =========================================================
+
+# I know it's sloppy, but it gets what I need done so stay it shall.
+class String
+    def method_missing(name, *args)
+        colors = :white, :black, :red, :green, :yellow, :blue, :magenta, :cyan
+        styles, menu = "", [:bold, :fade, :italic]
+        menu.reject {|s| !args.include?(s)}.each{|s| styles += "#{menu.index(s)+1};"}
+        offset = args.include?(:inverse) ? 100 : 30;
+
+        "\e[#{styles}#{colors.index(name) - 1 + offset}m#{self}\e[0m"
+    end
+
+    def set? () ARGV.grep(/^(-|--)?#{self}(=.*)?$/).length > 0 end
+    def run () "verbose".set? ? system("#{self} | sed 's/^/   #{"→".white(:fade)} /'") : `#{self} > /dev/null 2>&1` end
+    def get () 
+        match = ARGV.grep(/^#{self}=(.*?)$/)
+        match.length > 0 ? match[0].gsub(/^(.*?)=/, '') : ARGV[ARGV.index(self) + 1]
+    end
+end
+
+namespace :clear do 
+    desc "Clear out CSV report files"
+    task :reports do 
+        "rm -rf reports/*".run
+        puts "→ Reports cleared".green
+    end
+
+    desc "Clear out log files"
+    task :logs do 
+        "rm -rf logs/*".run
+        puts "→ Logs cleared".green
+    end
+end
+
+# Display help menu
+task :default do |t, args|
+    menu = `rake -T`.split("\n")
+    menu.each do |item|
+        task, description = item.split('# ')
+
+        puts "→ #{task}".green + description
+    end
+end

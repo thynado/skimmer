@@ -1,0 +1,230 @@
+#!/usr/bin/env python
+# encoding=utf8
+
+from collections import OrderedDict
+import sys, json, glob, re, time, os, locale, operator, time, csv
+
+# File index for progression reporting.
+fileIndex = 0
+
+# Color and formatting
+def bold (string):
+    return "\033[1;89m%s\033[0m " % string
+
+def italic (string):
+    return "\033[2;89m%s\033[0m " % string
+
+def green (colored):
+    return "\033[92m%s\033[0m " % colored
+
+def red (colored):
+    return "\033[91m%s\033[0m " % colored
+
+def gray (colored):
+    return "\033[2;88m%s\033[0m " % colored
+
+def yellow (colored):
+    return "\033[93m%s\033[0m " % colored
+
+def blue (colored):
+    return "\033[94m%s\033[0m " % colored
+
+def magenta (colored):
+    return "\033[95m%s\033[0m " % colored
+
+def teal (colored):
+    return "\033[96m%s\033[0m " % colored
+
+def divider():
+    return " " + gray(("-" * (int(os.popen("tput cols").read()) - 2)))
+
+# Check to see if a flag is set
+def isset (arg):
+    return arg in sys.argv
+
+# Get a flags value
+def get (arg):
+    if isset(arg):
+        if arg in sys.argv and len(sys.argv) > (sys.argv.index(arg) + 1):
+            return sys.argv[sys.argv.index(arg) + 1]
+
+# Creates a visual progression, used within the for-loop
+def progress():
+    # Increment the boundless index
+    global fileIndex
+    fileIndex += 1
+
+    picon = get("-pi") or "#"
+    pwidth = int(get("-pw") or "60")
+
+    # The value of how many progress signs (#) can 
+    # be shown out of the max length (bar_len)
+    filled_len = int(round(pwidth * fileIndex / float(totalLines)))
+    
+    # Rounds the division between the boundless 
+    # index and the total lines being scanned
+    percents = round(100.0 * fileIndex / float(totalLines), 1)
+    
+    # Presentation of the data above as a progress bar.
+    bar = picon * filled_len + '-' * (pwidth - filled_len)
+    sys.stdout.write('\r' + green('→') + '[%s] %s%s ' % (bar, percents, '%'))
+    sys.stdout.flush()
+
+# Display a help menu
+if isset("-h") or isset("--help"):
+    print green("→ [--files, --file, -f]") + " Specify a file or glob of files"
+    print green("→ [-pi]") + "                 Customize the icon used in showing progress"
+    print green("→ [-pw]") + "                 Customize the width of the progress bar"
+    sys.exit(0)
+
+# Load the configuration file.
+data = json.load(open('config.json'), object_pairs_hook=OrderedDict)
+
+# Collection of limitation and exclusion rules
+# as well as template columns to report on and
+# the collection that stores all results
+limitations = {}
+exclusions = {}
+template = {}
+collection = []
+
+# Build limitation rules
+for i in data["limits"]:
+    if data["limits"][i]:
+        limitations[data["limits"].keys().index(i)] = data["limits"][i]
+        pass
+
+# Build exclusion rules
+for i in data["exclusions"]:
+    if data["exclusions"][i]:
+        exclusions[data["exclusions"].keys().index(i)] = data["exclusions"][i]
+        pass
+
+# Build the template
+for i in data["template"]:
+    template[data["template"].keys().index(i)] = data["template"][i]
+    pass
+
+# Collect only the indexes of columns to report on.
+templateKeys = [i for i, x in enumerate(template.values()) if x]
+templateNames = []
+for x in templateKeys:
+    templateNames.append(data["template"].keys()[x])
+
+# If no template columns
+# have been set, abort
+# the process.
+if not templateKeys:
+    print red("→ No template columns have been set")
+    sys.exit(0)
+
+# If no limitation are 
+# discovered, print out message 
+# and exit process.
+if not limitations and not exclusions:
+    print red("→ No limitations or exclusions specified.")
+    sys.exit(0)
+
+# Log file glob
+
+if get("--file") or get("-f") or get("--files"):
+    logFiles = glob.glob(get("--file") or get("-f") or get("--files"))
+else:
+    logFiles = glob.glob('logs/*.log')
+
+# The variable holding the count of total lines
+# doesn't account (pun) for commented lines.
+totalLines = 0
+for logFile in logFiles:
+    totalLines += int(re.sub(r'  +| .*', '', os.popen("wc -l " + logFile).read())) + 1
+
+# Report the number of log files 
+# and the total lines counted
+print green("→ Total log files:")  + str(len(logFiles))
+print green("→ Total lines:")  + "{:,}".format(totalLines)
+
+# Start the clock
+start = time.time()
+
+# Iteration over logfiles
+for logFile in logFiles:
+    with open(logFile) as f:
+        for line in f:
+            # Skip lines that are there for column declaration
+            if re.compile("^#").match(line):
+                progress()
+                continue
+
+            # Split the data with a space delimiter
+            # Unlike a CSV, the data is spaced out
+            data = line.split(' ')
+
+            # Skip lines that are null, or just null line.
+            # Also skip requests to "/".
+            if re.compile("^-$").match(line[6]) or data[6] == "/":
+                progress()
+                continue
+
+            # If the value is within the same index item of the line data
+            # negate the loop and continue the parent loop.
+            breakout = False
+            for i, d in enumerate(exclusions):
+                if breakout is True:
+                    break;
+
+                for v in exclusions[d]:
+                    if v in data[d].decode("ascii", "ignore"):
+                        breakout = True
+                        break;
+
+            if breakout is True:
+                progress()
+                continue
+
+            truths = 0
+            for i, d in enumerate(limitations):
+                for v in limitations[d]:
+                    # If the value is within the same index item of the line data
+                    # iterate the truth count and break the current for-loop.
+                    if v in data[d].decode("ascii", "ignore"):
+                        truths += 1
+                        break;
+
+            # Ensure the number of known truths is equivalent
+            # to the number of limitations keys.
+            if truths == len(limitations):
+                collection.append(data)
+            
+            # Show progression
+            progress()
+
+# End the clock and report the time 
+# exhausted during this process.
+end = time.time()
+print "\n" + divider()
+
+# Report the number of results found
+print green("→ Results found:") + "{:,}".format(len(collection))
+
+# Save contents out to CSV report file.
+filename = str(time.strftime("reports/%m-%d-%Y_%H:%M:%S.csv"))
+
+# Set CSV writer
+w = csv.writer(open(filename, "w"))
+
+# Notify the user
+print green("→ Saving results to:") + filename
+
+# Write the headers being used for reporting
+w.writerow(templateNames)
+
+# For each row, split by space
+for x in collection:
+    lineInfo = []
+    for key, val in enumerate(x):
+        if key in templateKeys:
+            lineInfo.append(val)
+    w.writerow(lineInfo)
+
+print divider()
+print green("→ Completed in:") + str(round(float(end - start), 2)) + ' seconds'
