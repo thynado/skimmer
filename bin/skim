@@ -89,9 +89,9 @@ template = {}
 collection = []
 
 # Build limitation rules
-for i in data["limits"]:
-    if data["limits"][i]:
-        limitations[data["limits"].keys().index(i)] = data["limits"][i]
+for i in data["limitations"]:
+    if data["limitations"][i]:
+        limitations[data["limitations"].keys().index(i)] = data["limitations"][i]
         pass
 
 # Build exclusion rules
@@ -126,11 +126,17 @@ if not limitations and not exclusions:
     sys.exit(0)
 
 # Log file glob
-
 if get("--file") or get("-f") or get("--files"):
     logFiles = glob.glob(get("--file") or get("-f") or get("--files"))
 else:
     logFiles = glob.glob('logs/*.log')
+
+# If no log files are found from 
+# the glob, print out message 
+# and exit process.
+if not logFiles:
+    print red("→ No log files found.")
+    sys.exit(0)
 
 # The variable holding the count of total lines
 # doesn't account (pun) for commented lines.

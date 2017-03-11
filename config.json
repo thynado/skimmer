@@ -23,7 +23,7 @@
         "cs-bytes":        false,
         "time-taken":      false
     },
-    "limits": {
+    "limitations": {
         "date":            [],
         "time":            [],
         "s-sitename":      [],
