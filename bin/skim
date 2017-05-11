@@ -49,13 +49,13 @@ def get (arg):
             return sys.argv[sys.argv.index(arg) + 1]
 
 # Creates a visual progression, used within the for-loop
+pwidth = int(os.popen("tput cols").read()) - 14
+picon = get("-pi") or "#"
+
 def progress():
     # Increment the boundless index
     global fileIndex
     fileIndex += 1
-
-    picon = get("-pi") or "#"
-    pwidth = int(get("-pw") or "60")
 
     # The value of how many progress signs (#) can 
     # be shown out of the max length (bar_len)
@@ -167,7 +167,8 @@ for logFile in logFiles:
 
             # Skip lines that are null, or just null line.
             # Also skip requests to "/".
-            if re.compile("^-$").match(line[6]) or data[6] == "/":
+            # if re.compile("^-$").match(line[6]) or data[6] == "/":
+            if re.compile("^-$").match(line[6]):
                 progress()
                 continue
 
