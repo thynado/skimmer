@@ -210,28 +210,34 @@ for logFile in logFiles:
 end = time.time()
 print "\n" + divider()
 
-# Report the number of results found
-print green("→ Results found:") + "{:,}".format(len(collection))
+resultCount = "{:,}".format(len(collection))
 
-# Save contents out to CSV report file.
-filename = str(time.strftime("reports/%m-%d-%Y_%H:%M:%S.csv"))
+if resultCount == "0" or resultCount == 0:
+    print red("→ No results were found.")
+    print red("→ No CSV file will be saved.")
+else:
+    # Report the number of results found
+    print green("→ Results found:") + resultCount
 
-# Set CSV writer
-w = csv.writer(open(filename, "w"))
+    # Save contents out to CSV report file.
+    filename = str(time.strftime("reports/%m-%d-%Y_%H:%M:%S.csv"))
 
-# Notify the user
-print green("→ Saving results to:") + filename
+    # Set CSV writer
+    w = csv.writer(open(filename, "w"))
 
-# Write the headers being used for reporting
-w.writerow(templateNames)
+    # Notify the user
+    print green("→ Saving results to:") + filename
 
-# For each row, split by space
-for x in collection:
-    lineInfo = []
-    for key, val in enumerate(x):
-        if key in templateKeys:
-            lineInfo.append(val)
-    w.writerow(lineInfo)
+    # Write the headers being used for reporting
+    w.writerow(templateNames)
+
+    # For each row, split by space
+    for x in collection:
+        lineInfo = []
+        for key, val in enumerate(x):
+            if key in templateKeys:
+                lineInfo.append(val)
+        w.writerow(lineInfo)
 
 print divider()
 print green("→ Completed in:") + str(round(float(end - start), 2)) + ' seconds'
