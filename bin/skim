@@ -165,7 +165,7 @@ for logFile in logFiles:
             # Unlike a CSV, the data is spaced out
             data = line.split(' ')
 
-            # Skip lines that are null, or just null line.
+            # Skip lines that are null, or just a null line.
             # Also skip requests to "/".
             # if re.compile("^-$").match(line[6]) or data[6] == "/":
             if re.compile("^-$").match(line[6]):
@@ -177,12 +177,19 @@ for logFile in logFiles:
             breakout = False
             for i, d in enumerate(exclusions):
                 if breakout is True:
-                    break;
+                    break
 
                 for v in exclusions[d]:
-                    if v in data[d].decode("ascii", "ignore"):
+                    # If the value is within the same index item of the line data
+                    # or matches the current expression, breakout from 
+                    # this line to continue on to the next set.
+                    if re.match("^\/.*?\/$", v):
+                        if re.match( re.sub('^\/|\/$', '', v), data[d].decode("ascii", "ignore") ):
+                            breakout = True
+                            break
+                    elif v in data[d].decode("ascii", "ignore"):
                         breakout = True
-                        break;
+                        break
 
             if breakout is True:
                 progress()
@@ -193,9 +200,14 @@ for logFile in logFiles:
                 for v in limitations[d]:
                     # If the value is within the same index item of the line data
                     # iterate the truth count and break the current for-loop.
-                    if v in data[d].decode("ascii", "ignore"):
+                    # If the string looks like an expression, run it as such.
+                    if re.match("^\/.*?\/$", v):
+                        if re.match( re.sub('^\/|\/$', '', v), data[d].decode("ascii", "ignore") ):
+                            truths += 1
+                            break
+                    elif v in data[d].decode("ascii", "ignore"):
                         truths += 1
-                        break;
+                        break
 
             # Ensure the number of known truths is equivalent
             # to the number of limitations keys.
