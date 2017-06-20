@@ -184,7 +184,7 @@ for logFile in logFiles:
                     # or matches the current expression, breakout from 
                     # this line to continue on to the next set.
                     if re.match("^\/.*?\/$", v):
-                        if re.match( re.sub('^\/|\/$', '', v), data[d].decode("ascii", "ignore") ):
+                        if re.search( re.sub('^\/|\/$', '', v), data[d].decode("ascii", "ignore") ):
                             breakout = True
                             break
                     elif v in data[d].decode("ascii", "ignore"):
@@ -202,7 +202,7 @@ for logFile in logFiles:
                     # iterate the truth count and break the current for-loop.
                     # If the string looks like an expression, run it as such.
                     if re.match("^\/.*?\/$", v):
-                        if re.match( re.sub('^\/|\/$', '', v), data[d].decode("ascii", "ignore") ):
+                        if re.search( re.sub('^\/|\/$', '', v), data[d].decode("ascii", "ignore") ):
                             truths += 1
                             break
                     elif v in data[d].decode("ascii", "ignore"):
