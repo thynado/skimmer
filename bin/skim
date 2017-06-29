@@ -2,7 +2,7 @@
 # encoding=utf8
 
 from collections import OrderedDict
-import sys, json, glob, re, time, os, locale, operator, time, csv
+import sys, json, glob, re, time, os, time, csv
 
 # File index for progression reporting.
 fileIndex = 0
@@ -232,7 +232,7 @@ else:
     print green("→ Results found:") + resultCount
 
     # Save contents out to CSV report file.
-    filename = str(time.strftime("reports/%m-%d-%Y_%H:%M:%S.csv"))
+    filename = str(time.strftime("results/%m-%d-%Y_%H:%M:%S.csv"))
 
     # Set CSV writer
     w = csv.writer(open(filename, "w"))
