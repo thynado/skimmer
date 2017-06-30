@@ -18,32 +18,6 @@ skim -f logs/foo.log
 skim -f "foo/bar/*.log"
 ```
 
-**-pi**  
-The `-pi` flag allows you to customize the icon used in the progression bar. It's just a fun aesthetic so you can add emoticons to reflect your inner feelings:
-
-``` shell
-skim -pi "/"
-
-# Output:
-
-→ Total log files: 6
-→ Total lines: 1,642,403
-→ [/////-------------------------------------------------------] 12.5%
-```
-
-**-pw**  
-The `-pw` flag allows you to customize the width of the progression bar. Another fun aesthetic:
-
-``` shell
-skim -pw 10
-
-# Output:
-
-→ Total log files: 6
-→ Total lines: 1,642,403
-→ [#---------] 12.5%
-```
-
 ## Custom reports
 Inside the root `config.json` file there are three keys that are used within Skimmer. The order of the keys in the arrays are paramount to the skimmer operating properly so don't change the order or remove any keys.
 
@@ -51,7 +25,7 @@ Inside the root `config.json` file there are three keys that are used within Ski
 The `template` array tells the skimmer what columns to save to the reported CSV file. That way you can ignore columns that aren't important such as `sc-bytes` or something like that.
 
 **`limits`**  
-The `limits` array tells the skimmer to limit results that have a value at the specified column. For example, we can limit results that have a `cs-uri-stem` containing either `/foo-bar` or `/foo/bar/baz` with the following:
+The `limits` array tells the Skimmer to limit results that have a value at the specified column. For example, we can limit results that have a `cs-uri-stem` containing either `/foo-bar` or `/foo/bar/baz` with the following:
 
 ``` json
 "limits": {
@@ -68,6 +42,15 @@ If we specify values in multiple limitation keys, it will ensure there is at lea
 }
 ```
 
+We can also supply regular expressions to match against. The value will be considered an expression when it starts and ends with a forward slash.
+
+``` json
+"limits": {
+    "cs-uri-stem": ["/foo(-bar|\/bar\/baz)/"]
+}
+```
+
+
 **`exclusions`**  
 Similar to limitations, but with the oppositite affect. Let's use the same limitations shown above but we'll exclude internal traffic. In this example, internal traffic will be recognized as the IP `12.34.56.78`:
 
@@ -78,6 +61,18 @@ Similar to limitations, but with the oppositite affect. Let's use the same limit
 },
 "exclusions": {
     "c-ip": ["12.34.56.78"]
+}
+```
+
+Much like `limitations`, we can also supply regular expressions to match against. The value will be considered an expression when it starts and ends with a forward slash. In this case, if the expression finds a match, it negates that row and continues forward:
+
+``` json
+"limits": {
+    "cs-uri-stem": ["/foo-bar", "/foo/bar/baz"],
+    "sc-status": ["404", "503"]
+},
+"exclusions": {
+    "c-ip": ["/[0-9]{1,3}\\.?/"]
 }
 ```
 

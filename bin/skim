@@ -50,7 +50,7 @@ def get (arg):
 
 # Creates a visual progression, used within the for-loop
 pwidth = int(os.popen("tput cols").read()) - 14
-picon = get("-pi") or "#"
+picon = "#"
 
 def progress():
     # Increment the boundless index
@@ -72,9 +72,7 @@ def progress():
 
 # Display a help menu
 if isset("-h") or isset("--help"):
-    print green("→ [--files, --file, -f]") + " Specify a file or glob of files"
-    print green("→ [-pi]") + "                 Customize the icon used in showing progress"
-    print green("→ [-pw]") + "                 Customize the width of the progress bar"
+    print green("→ [--file, -f]") + " Specify a file or glob of files"
     sys.exit(0)
 
 # Load the configuration file.
@@ -149,6 +147,9 @@ for logFile in logFiles:
 print green("→ Total log files:")  + str(len(logFiles))
 print green("→ Total lines:")  + "{:,}".format(totalLines)
 
+sys.stdout.write('\r' + green('→ Working:'))
+sys.stdout.flush()
+
 # Start the clock
 start = time.time()
 
@@ -158,7 +159,6 @@ for logFile in logFiles:
         for line in f:
             # Skip lines that are there for column declaration
             if re.compile("^#").match(line):
-                progress()
                 continue
 
             # Split the data with a space delimiter
@@ -169,7 +169,6 @@ for logFile in logFiles:
             # Also skip requests to "/".
             # if re.compile("^-$").match(line[6]) or data[6] == "/":
             if re.compile("^-$").match(line[6]):
-                progress()
                 continue
 
             # If the value is within the same index item of the line data
@@ -192,7 +191,6 @@ for logFile in logFiles:
                         break
 
             if breakout is True:
-                progress()
                 continue
 
             truths = 0
@@ -213,9 +211,10 @@ for logFile in logFiles:
             # to the number of limitations keys.
             if truths == len(limitations):
                 collection.append(data)
-            
-            # Show progression
-            progress()
+
+# Report that the heavy part is now finished.
+sys.stdout.write('\r' + green('→ Working:') + 'done')
+sys.stdout.flush()
 
 # End the clock and report the time 
 # exhausted during this process.
@@ -225,31 +224,67 @@ print "\n" + divider()
 resultCount = "{:,}".format(len(collection))
 
 if resultCount == "0" or resultCount == 0:
-    print red("→ No results were found.")
+    print red("→ No matches were found.")
     print red("→ No CSV file will be saved.")
 else:
-    # Report the number of results found
-    print green("→ Results found:") + resultCount
+    # Report the number of matches found
+    print green("→ Matches found:") + resultCount
 
     # Save contents out to CSV report file.
-    filename = str(time.strftime("results/%m-%d-%Y_%H:%M:%S.csv"))
+    filename = str(time.strftime("reports/%m-%d-%Y_%H:%M:%S.csv"))
 
     # Set CSV writer
     w = csv.writer(open(filename, "w"))
 
-    # Notify the user
-    print green("→ Saving results to:") + filename
-
     # Write the headers being used for reporting
-    w.writerow(templateNames)
+    w.writerow(["occurrences"] + templateNames)
 
-    # For each row, split by space
+    # For each row, split by space and only collect on fields 
+    # that were specified in the template config settings.
+    rows = []
     for x in collection:
-        lineInfo = []
+        row = []
         for key, val in enumerate(x):
             if key in templateKeys:
-                lineInfo.append(val)
-        w.writerow(lineInfo)
+                row.append(val)
+        rows.append(row)
+
+    # Collection of occurances of every reported row
+    # in the rows list above
+    occurrences = []
+
+    # Collection of items also used in reference 
+    # for excluding duplicate results.
+    lines = []
+
+    # Collect duplicate count in the same order as
+    # lines are singled out from their duplicates.
+    for x in rows:
+        if not x in lines:
+            lines.append(x)
+            occurrences.append(rows.count(x))
+
+    # Merge occurance values into the first index of 
+    # each item accoringly. A weird merge basically.
+    for index, value in enumerate(lines):
+        lines[index] = [occurrences[index]] + value
+
+    # Sort the lines by their initial value, the 
+    # occurence count. Then write the lines 
+    # to the CSV report file.
+    for x in sorted(lines, reverse=True):
+        w.writerow(x)
+
+    # Report the number of duplicates removed
+    percentage = "{0:.0f}%".format(float(len(collection) - len(lines)) / len(collection) * 100.0)
+    overall = "{:,}".format(len(collection) - len(lines))
+    print green("→ Duplicates removed:") + overall + " - " + percentage + " reduction"
+
+    # Report the number of lines being reported
+    print green("→ Total lines written:") + "{:,}".format(len(lines))
+
+    # Notify the user of save completion
+    print green("→ Saving results to:") + filename
 
 print divider()
 print green("→ Completed in:") + str(round(float(end - start), 2)) + ' seconds'
