@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # encoding=utf8
 
-from collections import OrderedDict
-import sys, json, glob, re, time, os, time, csv
+import multiprocessing as mp
 
-# File index for progression reporting.
-fileIndex = 0
+from collections import OrderedDict
+import string, sys, json, glob, re, time, os, time, csv, multiprocessing
 
 # Color and formatting
 def bold (string):
@@ -47,28 +46,6 @@ def get (arg):
     if isset(arg):
         if arg in sys.argv and len(sys.argv) > (sys.argv.index(arg) + 1):
             return sys.argv[sys.argv.index(arg) + 1]
-
-# Creates a visual progression, used within the for-loop
-pwidth = int(os.popen("tput cols").read()) - 14
-picon = "#"
-
-def progress():
-    # Increment the boundless index
-    global fileIndex
-    fileIndex += 1
-
-    # The value of how many progress signs (#) can 
-    # be shown out of the max length (bar_len)
-    filled_len = int(round(pwidth * fileIndex / float(totalLines)))
-    
-    # Rounds the division between the boundless 
-    # index and the total lines being scanned
-    percents = round(100.0 * fileIndex / float(totalLines), 1)
-    
-    # Presentation of the data above as a progress bar.
-    bar = picon * filled_len + '-' * (pwidth - filled_len)
-    sys.stdout.write('\r' + green('→') + '[%s] %s%s ' % (bar, percents, '%'))
-    sys.stdout.flush()
 
 # Display a help menu
 if isset("-h") or isset("--help"):
@@ -147,15 +124,109 @@ for logFile in logFiles:
 print green("→ Total log files:")  + str(len(logFiles))
 print green("→ Total lines:")  + "{:,}".format(totalLines)
 
+# Count available cores, then subtract one 
+# out of the kindness of our hearts.
+cores = int(os.popen("sysctl -n hw.ncpu").read()) - 1
+print green("→ Total processes created:")  + str(cores)
+
 sys.stdout.write('\r' + green('→ Working:'))
 sys.stdout.flush()
 
 # Start the clock
 start = time.time()
 
-# Iteration over logfiles
-for logFile in logFiles:
-    with open(logFile) as f:
+# Once all threads are completed run the following to save to a report file
+def report (collection):
+    global start, templateNames
+
+    # Report that the heavy part is now finished.
+    sys.stdout.write('\r' + green('→ Working:') + 'done')
+    sys.stdout.flush()
+
+    # End the clock and report the time 
+    # exhausted during this process.
+    print "\n" + green("→ Completed in:") + str(round(float(time.time() - start), 2)) + ' seconds'
+
+    resultCount = "{:,}".format(len(collection))
+
+    if resultCount == "0" or resultCount == 0:
+        print red("→ No matches were found.")
+        print red("→ No CSV file will be saved.")
+    else:
+        # Report the number of matches found
+        print green("→ Matches found:") + resultCount
+
+        # Notify of the next heavy lifting piece.
+        sys.stdout.write('\r' + green('→ Removing duplicates:'))
+        sys.stdout.flush()
+
+        # Save contents out to CSV report file.
+        filename = str(time.strftime("reports/%m-%d-%Y_%H:%M:%S.csv"))
+
+        # Set CSV writer
+        w = csv.writer(open(filename, "w"))
+
+        # Write the headers being used for reporting
+        w.writerow(["occurrences"] + templateNames)
+
+        # # For each row, split by space and only collect on fields 
+        # # that were specified in the template config settings.
+        rows = []
+        for x in collection:
+            row = []
+            for key, val in enumerate(x):
+                if key in templateKeys:
+                    row.append(val)
+            rows.append(row)
+
+        # Collection of occurances of every reported row
+        # in the rows list above
+        occurrences = []
+
+        # Collection of items also used in reference 
+        # for excluding duplicate results.
+        lines = []
+
+        # Collect duplicate count in the same order as
+        # lines are singled out from their duplicates.
+        for x in rows:
+            if not x in lines:
+                lines.append(x)
+                occurrences.append(rows.count(x))
+
+        # Merge occurance values into the first index of 
+        # each item accoringly. A weird merge basically.
+        for index, value in enumerate(lines):
+            lines[index] = [occurrences[index]] + value
+
+        # Sort the lines by their initial value, the 
+        # occurence count. Then write the lines 
+        # to the CSV report file.
+        for x in sorted(lines, reverse=True):
+            w.writerow(x)
+
+        # Tell the user that all is done.
+        sys.stdout.write('\r' + green('→ Removing duplicates:') + 'done')
+        sys.stdout.flush()
+
+        # Divider line to show report details
+        print "\n" + divider()
+
+        # Report the number of duplicates removed
+        percentage = "{0:.0f}%".format(float(len(collection) - len(lines)) / len(collection) * 100.0)
+        overall = "{:,}".format(len(collection) - len(lines))
+        print green("→ Duplicates removed:") + overall + " lines - " + percentage + " reduction"
+
+        # Report the number of lines being reported
+        print green("→ Total lines written:") + "{:,}".format(len(lines))
+
+        # Notify the user of save completion
+        print green("→ Saving results to:") + filename
+
+# Collect file data
+def collect (file):
+    response = []
+    with open(file) as f:
         for line in f:
             # Skip lines that are there for column declaration
             if re.compile("^#").match(line):
@@ -210,81 +281,20 @@ for logFile in logFiles:
             # Ensure the number of known truths is equivalent
             # to the number of limitations keys.
             if truths == len(limitations):
-                collection.append(data)
+                response.append(data)
 
-# Report that the heavy part is now finished.
-sys.stdout.write('\r' + green('→ Working:') + 'done')
-sys.stdout.flush()
+    return response
 
-# End the clock and report the time 
-# exhausted during this process.
-end = time.time()
-print "\n" + divider()
+# Start pool and create X processes.
+pool = multiprocessing.Pool(processes=cores)
 
-resultCount = "{:,}".format(len(collection))
+# Collect the results after all have completed.
+results = [pool.apply_async(collect, args=(x,)) for x in logFiles]
 
-if resultCount == "0" or resultCount == 0:
-    print red("→ No matches were found.")
-    print red("→ No CSV file will be saved.")
-else:
-    # Report the number of matches found
-    print green("→ Matches found:") + resultCount
+# Merge results into a single list/collection
+for sublist in [p.get() for p in results]:
+    for item in sublist:
+        collection.append(item)
 
-    # Save contents out to CSV report file.
-    filename = str(time.strftime("reports/%m-%d-%Y_%H:%M:%S.csv"))
-
-    # Set CSV writer
-    w = csv.writer(open(filename, "w"))
-
-    # Write the headers being used for reporting
-    w.writerow(["occurrences"] + templateNames)
-
-    # For each row, split by space and only collect on fields 
-    # that were specified in the template config settings.
-    rows = []
-    for x in collection:
-        row = []
-        for key, val in enumerate(x):
-            if key in templateKeys:
-                row.append(val)
-        rows.append(row)
-
-    # Collection of occurances of every reported row
-    # in the rows list above
-    occurrences = []
-
-    # Collection of items also used in reference 
-    # for excluding duplicate results.
-    lines = []
-
-    # Collect duplicate count in the same order as
-    # lines are singled out from their duplicates.
-    for x in rows:
-        if not x in lines:
-            lines.append(x)
-            occurrences.append(rows.count(x))
-
-    # Merge occurance values into the first index of 
-    # each item accoringly. A weird merge basically.
-    for index, value in enumerate(lines):
-        lines[index] = [occurrences[index]] + value
-
-    # Sort the lines by their initial value, the 
-    # occurence count. Then write the lines 
-    # to the CSV report file.
-    for x in sorted(lines, reverse=True):
-        w.writerow(x)
-
-    # Report the number of duplicates removed
-    percentage = "{0:.0f}%".format(float(len(collection) - len(lines)) / len(collection) * 100.0)
-    overall = "{:,}".format(len(collection) - len(lines))
-    print green("→ Duplicates removed:") + overall + " - " + percentage + " reduction"
-
-    # Report the number of lines being reported
-    print green("→ Total lines written:") + "{:,}".format(len(lines))
-
-    # Notify the user of save completion
-    print green("→ Saving results to:") + filename
-
-print divider()
-print green("→ Completed in:") + str(round(float(end - start), 2)) + ' seconds'
+# Report on the collection
+report(collection)
