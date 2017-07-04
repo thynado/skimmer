@@ -2,7 +2,7 @@
 # encoding=utf8
 
 import multiprocessing as mp
-
+from itertools import groupby
 from collections import OrderedDict
 import string, sys, json, glob, re, time, os, time, csv, multiprocessing
 
@@ -34,9 +34,6 @@ def magenta (colored):
 def teal (colored):
     return "\033[96m%s\033[0m " % colored
 
-def divider():
-    return " " + gray(("-" * (int(os.popen("tput cols").read()) - 2)))
-
 # Check to see if a flag is set
 def isset (arg):
     return arg in sys.argv
@@ -49,7 +46,8 @@ def get (arg):
 
 # Display a help menu
 if isset("-h") or isset("--help"):
-    print green("→ [--file, -f]") + " Specify a file or glob of files"
+    print green("→ --file, -f") + " Specify a file or glob of files"
+    print green("→ --help, -h") + " This help menu"
     sys.exit(0)
 
 # Load the configuration file.
@@ -171,54 +169,42 @@ def report (collection):
 
         # # For each row, split by space and only collect on fields 
         # # that were specified in the template config settings.
-        rows = []
-        for x in collection:
-            row = []
-            for key, val in enumerate(x):
+        for index, item in enumerate(collection):
+            updated = []
+            
+            for key, value in enumerate(item):
                 if key in templateKeys:
-                    row.append(val)
-            rows.append(row)
+                    updated.append(value)
+            
+            collection[index] = updated
 
-        # Collection of occurances of every reported row
-        # in the rows list above
-        occurrences = []
+        
+        def canonicalize (x):
+            return sorted(x, key=lambda x: hash(x[0]))
 
-        # Collection of items also used in reference 
-        # for excluding duplicate results.
-        lines = []
+        def countAndFilter (items):
+            grouper = groupby(sorted(map(canonicalize, items)))
+            return [list([len(list(g))] + k) for k, g in grouper]
 
-        # Collect duplicate count in the same order as
-        # lines are singled out from their duplicates.
-        for x in rows:
-            if not x in lines:
-                lines.append(x)
-                occurrences.append(rows.count(x))
-
-        # Merge occurance values into the first index of 
-        # each item accoringly. A weird merge basically.
-        for index, value in enumerate(lines):
-            lines[index] = [occurrences[index]] + value
+        filteredCollection = countAndFilter(collection)
 
         # Sort the lines by their initial value, the 
         # occurence count. Then write the lines 
         # to the CSV report file.
-        for x in sorted(lines, reverse=True):
+        for x in sorted(filteredCollection, reverse=True):
             w.writerow(x)
 
         # Tell the user that all is done.
         sys.stdout.write('\r' + green('→ Removing duplicates:') + 'done')
         sys.stdout.flush()
 
-        # Divider line to show report details
-        print "\n" + divider()
-
         # Report the number of duplicates removed
-        percentage = "{0:.0f}%".format(float(len(collection) - len(lines)) / len(collection) * 100.0)
-        overall = "{:,}".format(len(collection) - len(lines))
-        print green("→ Duplicates removed:") + overall + " lines - " + percentage + " reduction"
+        percentage = "{0:.02f}%".format(float(len(collection) - len(filteredCollection)) / len(collection) * 100.0)
+        overall = "{:,}".format(len(collection) - len(filteredCollection))
+        print green("\n→ Duplicates removed:") + overall + " lines - " + percentage + " reduction"
 
         # Report the number of lines being reported
-        print green("→ Total lines written:") + "{:,}".format(len(lines))
+        print green("→ Total lines written:") + "{:,}".format(len(filteredCollection))
 
         # Notify the user of save completion
         print green("→ Saving results to:") + filename
