@@ -190,7 +190,7 @@ def report (collection):
 
         # Write the headers being used for reporting
         header = ",".join(["occurrences"] + templateNames)
-        os.popen("LC_ALL=C sort " + filename + " | uniq -c | sed 's/^ *\\([0-9][0-9]*\) /\\1,/' | LC_ALL=C sort -nrk 2,2 -o " + filename)
+        os.popen("LC_ALL=C sort " + filename + " | LC_CTYPE=C uniq -c | sed 's/^ *\\([0-9][0-9]*\) /\\1,/' | LC_ALL=C sort -nrk 1,1 -o " + filename)
         os.popen("echo '" + header + "' | cat - " + filename + " > temp && mv temp " + filename)
 
         # Tell the user that all is done.
