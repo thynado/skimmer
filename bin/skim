@@ -2,7 +2,6 @@
 # encoding=utf8
 
 import multiprocessing as mp
-from itertools import groupby
 from collections import OrderedDict
 import string, sys, json, glob, re, time, os, time, csv, multiprocessing
 
@@ -104,12 +103,23 @@ if get("--file") or get("-f") or get("--files"):
 else:
     logFiles = glob.glob('logs/*.log')
 
+logFiles.sort()
+
 # If no log files are found from 
 # the glob, print out message 
 # and exit process.
 if not logFiles:
     print red("→ No log files found.")
     sys.exit(0)
+
+if len(logFiles) > 5:
+    try:
+        limit = raw_input(green("→ How many log files do you want used") + gray("(" + str(len(logFiles)) + " found)"))
+        if limit:
+            logFiles = logFiles[:int(limit)]
+    except ValueError:
+        print(red("→ That's not a number. Please try again."))
+        sys.exit(0)
 
 # The variable holding the count of total lines
 # doesn't account (pun) for commented lines.
@@ -119,8 +129,7 @@ for logFile in logFiles:
 
 # Report the number of log files 
 # and the total lines counted
-print green("→ Total log files:")  + str(len(logFiles))
-print green("→ Total lines:")  + "{:,}".format(totalLines)
+print green("→ Reading") + "{:,}".format(totalLines) + green(" lines across") + str(len(logFiles)) + green(" log files")
 
 # Count available cores, then subtract one 
 # out of the kindness of our hearts.
@@ -164,9 +173,6 @@ def report (collection):
         # Set CSV writer
         w = csv.writer(open(filename, "w"))
 
-        # Write the headers being used for reporting
-        w.writerow(["occurrences"] + templateNames)
-
         # # For each row, split by space and only collect on fields 
         # # that were specified in the template config settings.
         for index, item in enumerate(collection):
@@ -178,33 +184,29 @@ def report (collection):
             
             collection[index] = updated
 
-        
-        def canonicalize (x):
-            return sorted(x, key=lambda x: hash(x[0]))
-
-        def countAndFilter (items):
-            grouper = groupby(sorted(map(canonicalize, items)))
-            return [list([len(list(g))] + k) for k, g in grouper]
-
-        filteredCollection = countAndFilter(collection)
-
-        # Sort the lines by their initial value, the 
-        # occurence count. Then write the lines 
-        # to the CSV report file.
-        for x in sorted(filteredCollection, reverse=True):
+        # Save the collection to the report file
+        for x in collection:
             w.writerow(x)
+
+        # Write the headers being used for reporting
+        header = ",".join(["occurrences"] + templateNames)
+        os.popen("sort " + filename + " | uniq -c | sed 's/^ *\\([0-9][0-9]*\) /\\1,/' | sort -nrk 2,2 -o " + filename)
+        os.popen("echo '" + header + "' | cat - " + filename + " > temp && mv temp " + filename)
 
         # Tell the user that all is done.
         sys.stdout.write('\r' + green('→ Removing duplicates:') + 'done')
         sys.stdout.flush()
 
+        originalCount = len(collection)
+        writtenCount = int(re.sub(r'  +| .*', '', os.popen("wc -l " + filename).read()))
+
         # Report the number of duplicates removed
-        percentage = "{0:.02f}%".format(float(len(collection) - len(filteredCollection)) / len(collection) * 100.0)
-        overall = "{:,}".format(len(collection) - len(filteredCollection))
+        percentage = "{0:.02f}%".format(float(originalCount - writtenCount) / originalCount * 100.0)
+        overall = "{:,}".format(originalCount - writtenCount)
         print green("\n→ Duplicates removed:") + overall + " lines - " + percentage + " reduction"
 
         # Report the number of lines being reported
-        print green("→ Total lines written:") + "{:,}".format(len(filteredCollection))
+        print green("→ Total lines written:") + "{:,}".format(writtenCount)
 
         # Notify the user of save completion
         print green("→ Saving results to:") + filename
