@@ -171,7 +171,8 @@ def report (collection):
         filename = str(time.strftime("reports/%m-%d-%Y_%H:%M:%S.csv"))
 
         # Set CSV writer
-        w = csv.writer(open(filename, "w"))
+        file = open(filename, "w")
+        writer = csv.writer(file)
 
         # # For each row, split by space and only collect on fields 
         # # that were specified in the template config settings.
@@ -184,32 +185,36 @@ def report (collection):
             
             collection[index] = updated
 
-        # Save the collection to the report file
-        for x in collection:
-            w.writerow(x)
+        try:
+            # Save the collection to the report file
+            for x in collection:
+                writer.writerow(x)
+        finally:
+            file.close()
+            del writer
 
-        # Write the headers being used for reporting
-        header = ",".join(["occurrences"] + templateNames)
-        os.popen("LC_ALL=C sort " + filename + " | LC_CTYPE=C uniq -c | sed 's/^ *\\([0-9][0-9]*\) /\\1,/' | LC_ALL=C sort -nrk 1,1 -o " + filename)
-        os.popen("echo '" + header + "' | cat - " + filename + " > temp && mv temp " + filename)
+            # Write the headers being used for reporting
+            header = ",".join(["occurrences"] + templateNames)
+            os.popen("LC_ALL=C sort " + filename + " | LC_CTYPE=C uniq -c | sed 's/^ *\\([0-9][0-9]*\) /\\1,/' | LC_ALL=C sort -nrk 1,1 -o " + filename)
+            os.popen("echo '" + header + "' | cat - " + filename + " > temp && mv temp " + filename)
 
-        # Tell the user that all is done.
-        sys.stdout.write('\r' + green('→ Removing duplicates:') + 'done')
-        sys.stdout.flush()
+            # Tell the user that all is done.
+            sys.stdout.write('\r' + green('→ Removing duplicates:') + 'done')
+            sys.stdout.flush()
 
-        originalCount = len(collection)
-        writtenCount = int(re.sub(r'  +| .*', '', os.popen("wc -l " + filename).read()))
+            originalCount = len(collection)
+            writtenCount = int(re.sub(r'  +| .*', '', os.popen("wc -l " + filename).read())) - 1
 
-        # Report the number of duplicates removed
-        percentage = "{0:.02f}%".format(float(originalCount - writtenCount) / originalCount * 100.0)
-        overall = "{:,}".format(originalCount - writtenCount)
-        print green("\n→ Duplicates removed:") + overall + " lines - " + percentage + " reduction"
+            # Report the number of duplicates removed
+            percentage = "{0:.02f}%".format(float(originalCount - writtenCount) / originalCount * 100.0)
+            overall = "{:,}".format(originalCount - writtenCount)
+            print green("\n→ Removed") + overall + green(" lines -") + percentage + green(" reduction in size.")
 
-        # Report the number of lines being reported
-        print green("→ Total lines written:") + "{:,}".format(writtenCount)
+            # Report the number of lines being reported
+            print green("→ Total lines written:") + "{:,}".format(writtenCount)
 
-        # Notify the user of save completion
-        print green("→ Saving results to:") + filename
+            # Notify the user of save completion
+            print green("→ Saving results to:") + filename
 
 # Collect file data
 def collect (file):
