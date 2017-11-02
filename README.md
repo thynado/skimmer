@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="demo.gif" width="500">
+    <img src="screenshot.png" width="500">
 </p>
 
 # Skimmer

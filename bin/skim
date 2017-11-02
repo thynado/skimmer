@@ -103,7 +103,7 @@ if get("--file") or get("-f") or get("--files"):
 else:
     logFiles = glob.glob('logs/*.log')
 
-logFiles.sort()
+logFiles.sort(reverse=True)
 
 # If no log files are found from 
 # the glob, print out message 
